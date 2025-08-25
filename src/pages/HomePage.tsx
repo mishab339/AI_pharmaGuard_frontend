@@ -19,12 +19,30 @@ const HomePage: React.FC<HomePageProps> = () => {
 
 
 const handleBarcodeUpdate = (_: unknown, result?: Result) => {
-  if (result) {
-    setScannedData(result.getText()); // ✅ result.getText() gives the QR content
-    setIsScanning(false);
-    setError("");
-  }
+  if (result) {
+    setScannedData(result.getText());
+    setIsScanning(false);
+    setError("");
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (err) => {
+          setError("Failed to get location: " + err.message);
+        }
+      );
+    } else {
+      setError("Geolocation is not supported by this browser.");
+    }
+  }
 };
+
+const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
 
   const handleStartScan = (): void => {
@@ -126,6 +144,12 @@ const handleBarcodeUpdate = (_: unknown, result?: Result) => {
                   <p className="text-yellow-400 font-mono break-all text-sm">
                     {scannedData}
                   </p>
+                  {location && (
+                    <p className="text-slate-300 text-sm mt-2">
+                                 Location: Latitude {location.latitude.toFixed(4)}, Longitude {location.longitude.toFixed(4)}
+                    </p>
+                  )}
+
                 </div>
 
                 <div className="flex gap-3">
