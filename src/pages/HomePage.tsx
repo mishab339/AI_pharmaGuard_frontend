@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import BarcodeScannerComponent from "react-qr-barcode-scanner";
 import type { Result } from "@zxing/library";
+import medicineVerify from "../services/medicine_verify";
 
 interface HomePageProps {}
 
@@ -17,33 +18,49 @@ const HomePage: React.FC<HomePageProps> = () => {
   const [scannedData, setScannedData] = useState<string>("");
   const [error, setError] = useState<string>("");
 
+  const handleBarcodeUpdate = async (_: unknown, result?: Result) => {
+    if (result) {
+      setScannedData(result.getText());
+      setIsScanning(false);
+      setError("");
 
-const handleBarcodeUpdate = (_: unknown, result?: Result) => {
-  if (result) {
-    setScannedData(result.getText());
-    setIsScanning(false);
-    setError("");
-    
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (err) => {
-          setError("Failed to get location: " + err.message);
-        }
-      );
-    } else {
-      setError("Geolocation is not supported by this browser.");
-    }
-  }
-};
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const location = {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            };
+            setLocation(location);
 
-const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+            try {
+              // Send scanned data to backend
+              const response = await medicineVerify({
+                medicineId: result.getText(), // barcode text
+                location: `${location.latitude},${location.longitude}`, // stringify
+                userType: "customer", // or pharmacist/admin/etc, pass dynamically
+              });
 
+              console.log("Backend response:", response);
+            } catch (err: any) {
+              console.error("Error verifying medicine:", err);
+              setError("Failed to verify medicine.");
+            }
+          },
+          (err) => {
+            setError("Failed to get location: " + err.message);
+          }
+        );
+      } else {
+        setError("Geolocation is not supported by this browser.");
+      }
+    }
+  };
+
+  const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   const handleStartScan = (): void => {
     setError("");
@@ -68,7 +85,7 @@ const [location, setLocation] = useState<{ latitude: number; longitude: number }
           <div className="inline-flex items-center justify-center w-16 h-16 mb-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl shadow-lg">
             <QrCode className="w-8 h-8 text-slate-900" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold text-white mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text">
             QR Scanner Pro
           </h1>
           <p className="text-slate-300 text-lg max-w-md mx-auto">
@@ -145,11 +162,11 @@ const [location, setLocation] = useState<{ latitude: number; longitude: number }
                     {scannedData}
                   </p>
                   {location && (
-                    <p className="text-slate-300 text-sm mt-2">
-                                 Location: Latitude {location.latitude.toFixed(4)}, Longitude {location.longitude.toFixed(4)}
-                    </p>
+                    <p className="text-slate-300 text-sm mt-2">
+                          Location: Latitude {location.latitude.toFixed(4)},
+                      Longitude {location.longitude.toFixed(4)} {" "}
+                    </p>
                   )}
-
                 </div>
 
                 <div className="flex gap-3">
@@ -170,7 +187,7 @@ const [location, setLocation] = useState<{ latitude: number; longitude: number }
             )}
 
             {error && (
-              <div className="text-center">
+              <div className="text-center pt-10">
                 <div className="w-20 h-20 mx-auto mb-4 bg-red-500 rounded-full flex items-center justify-center">
                   <AlertCircle className="w-10 h-10 text-white" />
                 </div>
